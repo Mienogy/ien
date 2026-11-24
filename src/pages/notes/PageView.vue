@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Archive,
+  Bell,
   CheckSquare,
   ChevronRight,
   Download,
@@ -22,6 +23,7 @@ import { useToasts } from '@/composables/useToasts'
 import Editor from '@/components/editor/Editor.vue'
 import ChecklistEditor from '@/components/notes/ChecklistEditor.vue'
 import CategoryMenu from '@/components/notes/CategoryMenu.vue'
+import ReminderDialog from '@/components/notes/ReminderDialog.vue'
 import ShareDialog from '@/components/notes/ShareDialog.vue'
 import VersionHistoryDialog from '@/components/notes/VersionHistoryDialog.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
@@ -29,11 +31,13 @@ import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import SubPageList from '@/components/sidebar/SubPageList.vue'
-import type { Page } from '@/types/models'
+import type { Page, Reminder } from '@/types/models'
 import * as pagesService from '@/services/supabase/pages'
 import * as checklistsService from '@/services/supabase/checklists'
 import * as templatesService from '@/services/supabase/templates'
 import * as revisionsService from '@/services/supabase/revisions'
+import * as remindersService from '@/services/supabase/reminders'
+import { formatDue, isOverdue } from '@/lib/datetime'
 import { tiptapToMarkdown } from '@/lib/tiptapMarkdown'
 import { downloadText, slugify } from '@/lib/download'
 
@@ -50,6 +54,8 @@ const saveState = ref<'idle' | 'saving' | 'saved'>('idle')
 const menuOpen = ref(false)
 const historyOpen = ref(false)
 const shareOpen = ref(false)
+const reminderOpen = ref(false)
+const reminder = ref<Reminder | null>(null)
 const deleteOpen = ref(false)
 const deleting = ref(false)
 const titleDraft = ref('')
@@ -79,6 +85,7 @@ async function loadBreadcrumbs() {
 async function load() {
   loading.value = true
   notFound.value = false
+  reminder.value = null
   try {
     await content.loadAll()
     const found = await pagesService.getPage(pageId.value, auth.userId ?? '')
@@ -88,7 +95,12 @@ async function load() {
     }
     page.value = found
     titleDraft.value = found.title
-    await Promise.all([loadBreadcrumbs(), pagesService.touchPage(found.id, auth.userId ?? '')])
+    const [currentReminder] = await Promise.all([
+      remindersService.getForPage(found.id, auth.userId ?? ''),
+      loadBreadcrumbs(),
+      pagesService.touchPage(found.id, auth.userId ?? ''),
+    ])
+    reminder.value = currentReminder
   } catch (e) {
     toasts.error(e instanceof Error ? e.message : 'Failed to load page.')
     notFound.value = true
@@ -165,6 +177,10 @@ async function saveAsTemplate() {
 
 function onShareChanged(slug: string | null) {
   if (page.value) page.value.public_slug = slug
+}
+
+function onReminderChanged(next: Reminder | null) {
+  reminder.value = next
 }
 
 function onEditorSave(value: Record<string, unknown>) {
@@ -389,6 +405,13 @@ const saveLabel = computed(() => {
               <button
                 class="menu__item"
                 role="menuitem"
+                @click="menuOpen = false; reminderOpen = true"
+              >
+                <Bell :size="14" /> Set reminder…
+              </button>
+              <button
+                class="menu__item"
+                role="menuitem"
                 @click="menuOpen = false; historyOpen = true"
               >
                 <History :size="14" /> Version history
@@ -461,6 +484,15 @@ const saveLabel = computed(() => {
           :category-id="page.category_id"
           @assign="onAssignCategory"
         />
+        <button
+          v-if="reminder"
+          class="chip chip--due"
+          :class="{ 'chip--overdue': isOverdue(reminder.due_at) }"
+          title="Edit reminder"
+          @click="reminderOpen = true"
+        >
+          <Bell :size="12" /> {{ formatDue(reminder.due_at) }}
+        </button>
         <span class="chip chip--muted">
           Created {{ new Date(page.created_at).toLocaleDateString() }}
         </span>
@@ -530,6 +562,13 @@ const saveLabel = computed(() => {
         :page="page"
         @close="shareOpen = false"
         @changed="onShareChanged"
+      />
+
+      <ReminderDialog
+        :open="reminderOpen"
+        :page="page"
+        @close="reminderOpen = false"
+        @changed="onReminderChanged"
       />
     </article>
   </div>
@@ -715,6 +754,23 @@ const saveLabel = computed(() => {
 .chip--muted {
   background: var(--bg-sunken);
   color: var(--text-muted);
+}
+
+.chip--due {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border: none;
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+
+.chip--due:hover {
+  filter: brightness(0.95);
+}
+
+.chip--overdue {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .page__body {

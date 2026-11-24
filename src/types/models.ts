@@ -101,3 +101,13 @@ export interface Revision {
   search_text: string | null
   created_at: string
 }
+
+/** Page reminder (Workflow §47 — reminders). */
+export interface Reminder {
+  id: string
+  page_id: string
+  due_at: string
+  is_done: boolean
+  created_at: string
+  updated_at: string
+}

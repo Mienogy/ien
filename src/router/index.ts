@@ -50,6 +50,11 @@ const router = createRouter({
         },
         { path: 'recent', name: 'recent', component: () => import('@/pages/notes/RecentPage.vue') },
         {
+          path: 'reminders',
+          name: 'reminders',
+          component: () => import('@/pages/notes/RemindersPage.vue'),
+        },
+        {
           path: 'archive',
           name: 'archive',
           component: () => import('@/pages/notes/ArchivePage.vue'),

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
   Archive,
+  Bell,
   ChevronDown,
   Clock,
   FileText,
@@ -36,6 +37,7 @@ const navItems = [
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'favorites' }, label: 'Favorites', icon: Star },
   { to: { name: 'recent' }, label: 'Recent', icon: Clock },
+  { to: { name: 'reminders' }, label: 'Reminders', icon: Bell },
   { to: { name: 'archive' }, label: 'Archive', icon: Archive },
 ]
 
