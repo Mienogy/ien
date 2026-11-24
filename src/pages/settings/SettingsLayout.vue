@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from 'vue-router'
-import { Eye, Shield, User, Palette } from 'lucide-vue-next'
+import { Palette, Shield, UserCog, User } from 'lucide-vue-next'
 
 const route = useRoute()
 
@@ -8,7 +8,7 @@ const sections = [
   { to: { name: 'settings' }, label: 'Profile', icon: User, exact: true },
   { to: { name: 'settings-security' }, label: 'Security', icon: Shield },
   { to: { name: 'settings-appearance' }, label: 'Appearance', icon: Palette },
-  { to: { name: 'settings-account' }, label: 'Account', icon: Eye },
+  { to: { name: 'settings-account' }, label: 'Account', icon: UserCog },
 ]
 
 function isActive(section: (typeof sections)[number]) {

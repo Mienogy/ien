@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useContentStore } from '@/stores/content'
 import { useToasts } from '@/composables/useToasts'
 import { changeEmail } from '@/services/supabase/auth'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -10,6 +11,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
+const content = useContentStore()
 const toasts = useToasts()
 
 const email = ref(auth.email ?? '')
@@ -17,6 +19,17 @@ const emailError = ref('')
 const emailBusy = ref(false)
 
 const deleteOpen = ref(false)
+
+// Account creation information (Workflow §17).
+const memberSince = computed(() => {
+  const created = content.profile?.created_at
+  if (!created) return ''
+  return new Date(created).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+})
 
 async function saveEmail() {
   emailError.value = ''
@@ -50,6 +63,14 @@ async function signOut() {
 
 <template>
   <div>
+    <!-- Account info -->
+    <p
+      v-if="memberSince"
+      class="member-since"
+    >
+      Member since {{ memberSince }}
+    </p>
+
     <!-- Email -->
     <section class="section">
       <h2 class="section__title">
@@ -130,6 +151,12 @@ async function signOut() {
 </template>
 
 <style scoped>
+.member-since {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-5);
+}
+
 .form {
   display: flex;
   flex-direction: column;

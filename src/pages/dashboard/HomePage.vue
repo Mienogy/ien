@@ -12,7 +12,7 @@ import PageLink from '@/components/ui/PageLink.vue'
 import CreateChecklistDialog from '@/components/notes/CreateChecklistDialog.vue'
 import CreateSpaceDialog from '@/components/spaces/CreateSpaceDialog.vue'
 import type { DashboardStats, PageSummary } from '@/types/models'
-import { supabase, isSupabaseConfigured } from '@/services/supabase/client'
+import { getDashboardStats } from '@/services/supabase/stats'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -42,34 +42,7 @@ const greeting = computed(() => {
 const hasData = computed(() => recents.value.length > 0 || favorites.value.length > 0)
 
 async function loadStats() {
-  if (!auth.userId || !isSupabaseConfigured) return
-  const [spaces, pages, favoritesCount, checklists] = await Promise.all([
-    supabase.from('spaces').select('id', { count: 'exact', head: true }).eq('user_id', auth.userId),
-    supabase
-      .from('pages')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', auth.userId)
-      .eq('is_archived', false)
-      .eq('type', 'page'),
-    supabase
-      .from('pages')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', auth.userId)
-      .eq('is_favorite', true)
-      .eq('is_archived', false),
-    supabase
-      .from('pages')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', auth.userId)
-      .eq('is_archived', false)
-      .eq('type', 'checklist'),
-  ])
-  stats.value = {
-    spaces: spaces.count ?? 0,
-    pages: pages.count ?? 0,
-    favorites: favoritesCount.count ?? 0,
-    checklists: checklists.count ?? 0,
-  }
+  stats.value = await getDashboardStats(auth.userId ?? '')
 }
 
 async function newPage() {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { ChevronRight, FileText, Plus } from 'lucide-vue-next'
+import { Check, ChevronRight, FileText, Plus } from 'lucide-vue-next'
 import { useContentStore } from '@/stores/content'
 import { useToasts } from '@/composables/useToasts'
 import SubPageList from './SubPageList.vue'
@@ -89,7 +89,9 @@ function toggle(id: string) {
             v-if="page.type === 'checklist'"
             class="tree__badge"
             title="Checklist"
-          >✓</span>
+          >
+            <Check :size="10" />
+          </span>
         </RouterLink>
       </div>
       <div
@@ -192,7 +194,8 @@ function toggle(id: string) {
 }
 
 .tree__badge {
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
   color: var(--accent-text);
   background: var(--accent-soft);
   border-radius: var(--radius-full);

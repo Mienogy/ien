@@ -71,6 +71,7 @@ async function onSignOut() {
     <!-- Brand -->
     <div class="sidebar__brand">
       <RouterLink
+        v-if="!collapsed"
         :to="{ name: 'home' }"
         class="brand"
       >
@@ -81,15 +82,13 @@ async function onSignOut() {
           width="22"
           height="22"
         >
-        <span
-          v-if="!collapsed"
-          class="brand__name"
-        >Ien</span>
+        <span class="brand__name">Ien</span>
       </RouterLink>
       <button
         v-if="!collapsed"
         class="sidebar__collapse"
         aria-label="Collapse sidebar"
+        title="Collapse sidebar"
         @click="ui.toggleSidebar()"
       >
         <PanelLeftClose :size="17" />
@@ -98,6 +97,7 @@ async function onSignOut() {
         v-else
         class="sidebar__collapse"
         aria-label="Expand sidebar"
+        title="Expand sidebar"
         @click="ui.toggleSidebar()"
       >
         <PanelLeftOpen :size="17" />
@@ -258,9 +258,15 @@ async function onSignOut() {
   overflow: hidden;
 }
 
+/* Collapsed = narrow rail (not width:0 — the expand button must stay visible) */
 .sidebar--collapsed {
-  width: 0;
-  border-right: none;
+  width: 48px;
+}
+
+.sidebar--collapsed .sidebar__brand {
+  justify-content: center;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
 }
 
 .sidebar__brand {
@@ -496,7 +502,10 @@ async function onSignOut() {
 }
 
 @media (max-width: 768px) {
-  .sidebar {
+  /* Collapse state is desktop-only; on mobile the drawer ignores it so
+     opening the menu always works, even if the rail was collapsed earlier. */
+  .sidebar,
+  .sidebar--collapsed {
     position: fixed;
     inset: 0 auto 0 0;
     z-index: var(--z-sidebar);
@@ -505,13 +514,9 @@ async function onSignOut() {
     box-shadow: var(--shadow-lg);
   }
 
-  .sidebar--mobile-open {
+  .sidebar--mobile-open,
+  .sidebar--mobile-open.sidebar--collapsed {
     transform: translateX(0);
-  }
-
-  .sidebar--collapsed {
-    width: min(var(--sidebar-width), 85vw);
-    transform: translateX(-100%);
   }
 
   .sidebar__backdrop {

@@ -3,7 +3,9 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Archive,
+  CheckSquare,
   ChevronRight,
+  FileText,
   FolderOpen,
   Hash,
   MoreHorizontal,
@@ -351,7 +353,17 @@ const saveLabel = computed(() => {
         <span
           class="page__icon"
           aria-hidden="true"
-        >{{ page.icon || (page.type === 'checklist' ? '☑' : '📄') }}</span>
+        >
+          <template v-if="page.icon">{{ page.icon }}</template>
+          <CheckSquare
+            v-else-if="page.type === 'checklist'"
+            :size="38"
+          />
+          <FileText
+            v-else
+            :size="38"
+          />
+        </span>
       </div>
 
       <!-- Title -->
@@ -568,8 +580,11 @@ const saveLabel = computed(() => {
 }
 
 .page__icon {
+  display: inline-flex;
+  align-items: center;
   font-size: 40px;
   line-height: 1;
+  color: var(--text-muted);
 }
 
 .page__title {

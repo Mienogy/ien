@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { Check, GripVertical, Plus, Trash2 } from 'lucide-vue-next'
+import { Check, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-vue-next'
 import type { ChecklistItem } from '@/types/models'
 import { useAuthStore } from '@/stores/auth'
 import { useToasts } from '@/composables/useToasts'
@@ -182,13 +182,23 @@ function move(index: number, direction: -1 | 1) {
             :disabled="index === 0"
             @click="move(index, -1)"
           >
-            <GripVertical :size="13" />
+            <ChevronUp :size="13" />
+          </button>
+          <button
+            class="item__action"
+            aria-label="Move down"
+            :disabled="index === items.length - 1"
+            @click="move(index, 1)"
+          >
+            <ChevronDown :size="13" />
           </button>
           <button
             class="item__action"
             aria-label="Edit item"
             @click="startEdit(item)"
-          >✎</button>
+          >
+            <Pencil :size="13" />
+          </button>
           <button
             class="item__action item__action--danger"
             aria-label="Delete item"

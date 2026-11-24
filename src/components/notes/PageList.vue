@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import { CheckSquare, FileText } from 'lucide-vue-next'
+import { CheckSquare, ChevronRight, FileText, Star } from 'lucide-vue-next'
 import type { PageSummary } from '@/types/models'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import type { Component } from 'vue'
@@ -58,10 +58,19 @@ function formatDate(iso: string): string {
         <span class="item__body">
           <span class="item__title truncate">{{ page.title || 'Untitled' }}</span>
           <span class="item__meta">
-            {{ page.is_favorite ? '★ Favorited · ' : '' }}Updated {{ formatDate(page.updated_at) }}
+            <template v-if="page.is_favorite">
+              <Star
+                :size="11"
+                class="item__fav"
+              /> Favorited ·
+            </template>
+            Updated {{ formatDate(page.updated_at) }}
           </span>
         </span>
-        <span class="item__chevron">›</span>
+        <ChevronRight
+          :size="15"
+          class="item__chevron"
+        />
       </RouterLink>
     </div>
 
@@ -137,7 +146,11 @@ function formatDate(iso: string): string {
 
 .item__chevron {
   color: var(--text-muted);
-  font-size: var(--text-lg);
-  line-height: 1;
+  flex-shrink: 0;
+}
+
+.item__fav {
+  vertical-align: -1.5px;
+  color: var(--accent-text);
 }
 </style>
