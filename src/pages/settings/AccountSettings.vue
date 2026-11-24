@@ -5,6 +5,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useContentStore } from '@/stores/content'
 import { useToasts } from '@/composables/useToasts'
 import { changeEmail } from '@/services/supabase/auth'
+import { exportWorkspace, importWorkspace } from '@/services/supabase/transfer'
+import { downloadJson } from '@/lib/download'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
@@ -19,6 +21,10 @@ const emailError = ref('')
 const emailBusy = ref(false)
 
 const deleteOpen = ref(false)
+
+const exporting = ref(false)
+const importing = ref(false)
+const importInput = ref<HTMLInputElement | null>(null)
 
 // Account creation information (Workflow §17).
 const memberSince = computed(() => {
@@ -58,6 +64,53 @@ async function deleteAccount() {
 async function signOut() {
   await auth.logout()
   router.push({ name: 'login' })
+}
+
+async function exportData() {
+  exporting.value = true
+  try {
+    const data = await exportWorkspace(auth.userId ?? '')
+    const date = new Date().toISOString().slice(0, 10)
+    downloadJson(`ien-export-${date}.json`, data)
+    toasts.success('Workspace exported.')
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : 'Export failed.')
+  } finally {
+    exporting.value = false
+  }
+}
+
+function openImport() {
+  importInput.value?.click()
+}
+
+async function importData(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  importing.value = true
+  try {
+    const raw: unknown = JSON.parse(await file.text())
+    const summary = await importWorkspace(auth.userId ?? '', raw)
+    // Refresh shared workspace data so the sidebar shows the import.
+    await Promise.all([
+      content.loadSpaces(),
+      content.loadCategories(),
+      content.loadFavorites(),
+      content.loadRecents(),
+    ])
+    toasts.success(
+      `Imported ${summary.pages} page${summary.pages === 1 ? '' : 's'}, ` +
+        `${summary.spaces} space${summary.spaces === 1 ? '' : 's'}, ` +
+        `${summary.checklistItems} checklist item${summary.checklistItems === 1 ? '' : 's'}.`,
+    )
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : 'Import failed.')
+  } finally {
+    importing.value = false
+  }
 }
 </script>
 
@@ -122,6 +175,43 @@ async function signOut() {
       </BaseButton>
     </section>
 
+    <!-- Your data -->
+    <section class="section">
+      <h2 class="section__title">
+        Your data
+      </h2>
+      <p class="section__description">
+        Export every space, page, checklist, and category as a JSON file — or restore
+        your workspace from a previous export. Imports are added alongside your
+        existing data.
+      </p>
+      <div class="data-actions">
+        <BaseButton
+          variant="secondary"
+          :loading="exporting"
+          @click="exportData"
+        >
+          Export JSON
+        </BaseButton>
+        <BaseButton
+          variant="secondary"
+          :loading="importing"
+          @click="openImport"
+        >
+          Import JSON
+        </BaseButton>
+        <input
+          ref="importInput"
+          class="data-actions__file"
+          type="file"
+          accept="application/json,.json"
+          tabindex="-1"
+          aria-hidden="true"
+          @change="importData"
+        >
+      </div>
+    </section>
+
     <!-- Danger zone -->
     <section class="section section--danger">
       <h2 class="section__title">
@@ -155,6 +245,16 @@ async function signOut() {
   font-size: var(--text-sm);
   color: var(--text-muted);
   margin-bottom: var(--space-5);
+}
+
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.data-actions__file {
+  display: none;
 }
 
 .form {

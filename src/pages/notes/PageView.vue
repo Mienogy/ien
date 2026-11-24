@@ -5,6 +5,7 @@ import {
   Archive,
   CheckSquare,
   ChevronRight,
+  Download,
   FileText,
   FolderOpen,
   MoreHorizontal,
@@ -25,6 +26,9 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import SubPageList from '@/components/sidebar/SubPageList.vue'
 import type { Page } from '@/types/models'
 import * as pagesService from '@/services/supabase/pages'
+import * as checklistsService from '@/services/supabase/checklists'
+import { tiptapToMarkdown } from '@/lib/tiptapMarkdown'
+import { downloadText, slugify } from '@/lib/download'
 
 const route = useRoute()
 const router = useRouter()
@@ -116,6 +120,24 @@ function saveTitle() {
 
 function onAssignCategory(categoryId: string | null) {
   void persist({ category_id: categoryId })
+}
+
+async function exportMarkdown() {
+  if (!page.value) return
+  try {
+    let body: string
+    if (page.value.type === 'checklist') {
+      const items = await checklistsService.listItems(page.value.id, auth.userId ?? '')
+      body = items.map((item) => `- [${item.is_done ? 'x' : ' '}] ${item.text}`).join('\n')
+    } else {
+      body = tiptapToMarkdown(page.value.content)
+    }
+    const markdown = `# ${page.value.title || 'Untitled'}\n\n${body}\n`
+    downloadText(`${slugify(page.value.title)}.md`, markdown, 'text/markdown')
+    toasts.success('Exported as Markdown.')
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : 'Export failed.')
+  }
 }
 
 function onEditorSave(value: Record<string, unknown>) {
@@ -330,6 +352,13 @@ const saveLabel = computed(() => {
               class="menu"
               role="menu"
             >
+              <button
+                class="menu__item"
+                role="menuitem"
+                @click="menuOpen = false; exportMarkdown()"
+              >
+                <Download :size="14" /> Export as Markdown
+              </button>
               <button
                 class="menu__item"
                 role="menuitem"
