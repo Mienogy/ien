@@ -104,6 +104,19 @@ export const useContentStore = defineStore('content', () => {
     delete rootPagesBySpace.value[id]
   }
 
+  async function createCategory(name: string, color?: string | null) {
+    if (!auth.userId) throw new Error('Not signed in.')
+    const category = await categoriesService.createCategory(auth.userId, name, color)
+    categories.value.push(category)
+    return category
+  }
+
+  async function deleteCategory(id: string) {
+    const err = await categoriesService.deleteCategory(id)
+    if (err) throw new Error(err)
+    categories.value = categories.value.filter((c) => c.id !== id)
+  }
+
   async function createPage(input: {
     spaceId?: string | null
     parentId?: string | null
@@ -147,6 +160,8 @@ export const useContentStore = defineStore('content', () => {
     createSpace,
     renameSpace,
     deleteSpace,
+    createCategory,
+    deleteCategory,
     createPage,
     openCreateSpace,
   }

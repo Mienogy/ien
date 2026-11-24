@@ -7,7 +7,6 @@ import {
   ChevronRight,
   FileText,
   FolderOpen,
-  Hash,
   MoreHorizontal,
   Plus,
   Star,
@@ -18,6 +17,7 @@ import { useContentStore } from '@/stores/content'
 import { useToasts } from '@/composables/useToasts'
 import Editor from '@/components/editor/Editor.vue'
 import ChecklistEditor from '@/components/notes/ChecklistEditor.vue'
+import CategoryMenu from '@/components/notes/CategoryMenu.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -45,9 +45,6 @@ const subPageVersion = ref(0)
 const pageId = computed(() => route.params.pageId as string)
 
 const space = computed(() => (page.value?.space_id ? content.spaceMap[page.value.space_id] : null))
-const category = computed(() =>
-  page.value?.category_id ? content.categoryMap[page.value.category_id] : null,
-)
 
 /** Breadcrumb trail: walk up parent_id chain. */
 const breadcrumbs = ref<{ id: string; title: string }[]>([])
@@ -115,6 +112,10 @@ function saveTitle() {
   if (page.value && title !== page.value.title) {
     void persist({ title })
   }
+}
+
+function onAssignCategory(categoryId: string | null) {
+  void persist({ category_id: categoryId })
 }
 
 function onEditorSave(value: Record<string, unknown>) {
@@ -378,12 +379,11 @@ const saveLabel = computed(() => {
 
       <!-- Meta chips -->
       <div class="page__meta">
-        <span
-          v-if="category"
-          class="chip chip--category"
-        >
-          <Hash :size="12" /> {{ category.name }}
-        </span>
+        <CategoryMenu
+          v-if="page"
+          :category-id="page.category_id"
+          @assign="onAssignCategory"
+        />
         <span class="chip chip--muted">
           Created {{ new Date(page.created_at).toLocaleDateString() }}
         </span>
@@ -619,11 +619,6 @@ const saveLabel = computed(() => {
   font-size: var(--text-xs);
   padding: 3px 10px;
   border-radius: var(--radius-full);
-}
-
-.chip--category {
-  background: var(--accent-soft);
-  color: var(--accent-text);
 }
 
 .chip--muted {
