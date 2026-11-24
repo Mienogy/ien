@@ -92,3 +92,32 @@ export function signInWithGoogle(): Promise<AuthResult> {
     })
     .then(({ error }) => toResult(error))
 }
+
+/**
+ * Permanently delete the signed-in account (Workflow §30).
+ * Storage objects are removed first (best effort), then the
+ * `delete_user()` SQL function removes the auth user — cascading
+ * through every table in the schema.
+ */
+export async function deleteAccount(userId: string): Promise<string | null> {
+  if (!isSupabaseConfigured) return 'Supabase is not configured yet.'
+
+  // Best-effort storage cleanup — the session dies with the user row.
+  try {
+    const avatarFiles = ['profile.jpg', 'profile.png', 'profile.webp', 'profile.gif'].map(
+      (name) => `${userId}/${name}`,
+    )
+    await supabase.storage.from('avatars').remove(avatarFiles)
+    const { data: images } = await supabase.storage.from('images').list(userId)
+    if (images?.length) {
+      await supabase.storage
+        .from('images')
+        .remove(images.map((file) => `${userId}/${file.name}`))
+    }
+  } catch {
+    // Ignore — DB cascade is what matters.
+  }
+
+  const { error } = await supabase.rpc('delete_user')
+  return error?.message ?? null
+}

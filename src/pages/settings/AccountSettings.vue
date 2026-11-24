@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useContentStore } from '@/stores/content'
 import { useToasts } from '@/composables/useToasts'
-import { changeEmail } from '@/services/supabase/auth'
+import { changeEmail, deleteAccount as deleteAccountService } from '@/services/supabase/auth'
 import { exportWorkspace, importWorkspace } from '@/services/supabase/transfer'
 import { downloadJson } from '@/lib/download'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -21,6 +21,7 @@ const emailError = ref('')
 const emailBusy = ref(false)
 
 const deleteOpen = ref(false)
+const deleting = ref(false)
 
 const exporting = ref(false)
 const importing = ref(false)
@@ -54,11 +55,21 @@ async function saveEmail() {
 }
 
 async function deleteAccount() {
-  // Account deletion requires elevated privileges; the cleanest secure
-  // approach without a backend is sign-out + Supabase dashboard, but we
-  // attempt the standard update path where supported.
-  toasts.info('Deleting your account is handled from the Supabase dashboard for now.')
-  deleteOpen.value = false
+  if (deleting.value) return
+  deleting.value = true
+  try {
+    const err = await deleteAccountService(auth.userId ?? '')
+    if (err) throw new Error(err)
+    deleteOpen.value = false
+    // Session died with the user row — clear local state and leave.
+    await auth.logout()
+    router.push({ name: 'login' })
+    toasts.success('Your account has been deleted.')
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : 'Failed to delete account.')
+  } finally {
+    deleting.value = false
+  }
 }
 
 async function signOut() {
@@ -234,6 +245,7 @@ async function importData(event: Event) {
       title="Delete your account?"
       message="All of your spaces, pages, and checklists will be permanently removed. This action cannot be undone."
       confirm-label="Delete account"
+      :loading="deleting"
       @close="deleteOpen = false"
       @confirm="deleteAccount"
     />
