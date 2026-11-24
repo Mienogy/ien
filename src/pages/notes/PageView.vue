@@ -16,6 +16,7 @@ import {
   Share2,
   Star,
   Trash2,
+  Upload,
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useContentStore } from '@/stores/content'
@@ -39,6 +40,7 @@ import * as revisionsService from '@/services/supabase/revisions'
 import * as remindersService from '@/services/supabase/reminders'
 import { formatDue, isOverdue } from '@/lib/datetime'
 import { tiptapToMarkdown } from '@/lib/tiptapMarkdown'
+import { markdownToTiptap } from '@/lib/markdownToTiptap'
 import { downloadText, slugify } from '@/lib/download'
 
 const route = useRoute()
@@ -56,6 +58,7 @@ const historyOpen = ref(false)
 const shareOpen = ref(false)
 const reminderOpen = ref(false)
 const reminder = ref<Reminder | null>(null)
+const markdownInput = ref<HTMLInputElement | null>(null)
 const deleteOpen = ref(false)
 const deleting = ref(false)
 const titleDraft = ref('')
@@ -181,6 +184,24 @@ function onShareChanged(slug: string | null) {
 
 function onReminderChanged(next: Reminder | null) {
   reminder.value = next
+}
+
+async function importMarkdown(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !page.value) return
+  try {
+    const text = await file.text()
+    const json = markdownToTiptap(text) as unknown as Record<string, unknown>
+    // Snapshot the current state first so the import is undoable.
+    await revisionsService.snapshotIfDue(page.value, auth.userId ?? '', true)
+    const searchText = extractText(json)
+    await persist({ content: json, search_text: searchText })
+    toasts.success('Markdown imported.')
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : 'Import failed.')
+  }
 }
 
 function onEditorSave(value: Record<string, unknown>) {
@@ -433,6 +454,13 @@ const saveLabel = computed(() => {
               <button
                 class="menu__item"
                 role="menuitem"
+                @click="menuOpen = false; markdownInput?.click()"
+              >
+                <Upload :size="14" /> Import Markdown…
+              </button>
+              <button
+                class="menu__item"
+                role="menuitem"
                 @click="menuOpen = false; toggleArchive()"
               >
                 <Archive :size="14" /> Archive page
@@ -570,6 +598,16 @@ const saveLabel = computed(() => {
         @close="reminderOpen = false"
         @changed="onReminderChanged"
       />
+
+      <input
+        ref="markdownInput"
+        class="page__file-input"
+        type="file"
+        accept=".md,.markdown,text/markdown,text/plain"
+        tabindex="-1"
+        aria-hidden="true"
+        @change="importMarkdown"
+      >
     </article>
   </div>
 </template>
@@ -771,6 +809,10 @@ const saveLabel = computed(() => {
 .chip--overdue {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.page__file-input {
+  display: none;
 }
 
 .page__body {

@@ -41,6 +41,7 @@ import { Callout } from './callout'
 import { useAuthStore } from '@/stores/auth'
 import { useToasts } from '@/composables/useToasts'
 import { uploadPageImage } from '@/services/supabase/storage'
+import { looksLikeMarkdown, markdownToTiptap } from '@/lib/markdownToTiptap'
 
 const props = withDefaults(
   defineProps<{
@@ -99,6 +100,20 @@ function createEditor() {
       attributes: {
         class: 'prose-editor',
         'aria-label': 'Page content editor',
+      },
+      // Plain-text pastes that look like Markdown are parsed into rich
+      // content; rich HTML pastes keep the default behaviour.
+      handlePaste(_view, event) {
+        if (event.clipboardData?.getData('text/html')) return false
+        const text = event.clipboardData?.getData('text/plain')
+        if (!text || !looksLikeMarkdown(text)) return false
+        event.preventDefault()
+        editor.value
+          ?.chain()
+          .focus()
+          .insertContent(markdownToTiptap(text) as object)
+          .run()
+        return true
       },
     },
     onUpdate: ({ editor: e }) => {
