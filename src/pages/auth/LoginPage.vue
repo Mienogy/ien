@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useForm } from 'vee-validate'
+import { Lock, Mail } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useContentStore } from '@/stores/content'
 import { needsMfaChallenge } from '@/services/supabase/mfa'
+import { mapAuthError, useFormField } from '@/lib/validation'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import GoogleButton from '@/components/auth/GoogleButton.vue'
@@ -14,23 +17,35 @@ const route = useRoute()
 const auth = useAuthStore()
 const content = useContentStore()
 
-const email = ref('')
-const password = ref('')
-const error = ref('')
+const { handleSubmit } = useForm()
+
+const {
+  value: email,
+  errorMessage: emailError,
+  onBlur: emailBlur,
+  setErrors: setEmailError,
+} = useFormField('email', 'required|email', 'Email')
+const {
+  value: password,
+  errorMessage: passwordError,
+  onBlur: passwordBlur,
+  setErrors: setPasswordError,
+} = useFormField('password', 'required', 'Password')
+
+const formError = ref('')
 const loading = ref(false)
 
-async function submit() {
-  error.value = ''
-  if (!email.value.trim() || !password.value) {
-    error.value = 'Please enter your email and password.'
-    return
-  }
+const submit = handleSubmit(async () => {
+  formError.value = ''
   loading.value = true
   const result = await auth.login(email.value, password.value)
   loading.value = false
 
   if (result.error) {
-    error.value = result.error
+    const mapped = mapAuthError(result)
+    if (mapped?.field === 'email') setEmailError(mapped.message)
+    else if (mapped?.field === 'password') setPasswordError(mapped.message)
+    else formError.value = mapped?.message ?? result.error
     return
   }
 
@@ -49,7 +64,7 @@ async function submit() {
   await content.loadAll()
   const redirect = (route.query.redirect as string) || '/'
   router.push(redirect)
-}
+})
 </script>
 
 <template>
@@ -59,31 +74,39 @@ async function submit() {
   >
     <form
       class="form"
+      novalidate
       @submit.prevent="submit"
     >
       <BaseInput
         v-model="email"
         label="Email"
         type="email"
-        placeholder="you@example.com"
         autocomplete="email"
+        floating
+        :icon="Mail"
+        :error="emailError"
         required
+        @blur="emailBlur"
       />
       <BaseInput
         v-model="password"
         label="Password"
         type="password"
-        placeholder="••••••••"
         autocomplete="current-password"
+        floating
+        :icon="Lock"
+        toggleable
+        :error="passwordError"
         required
+        @blur="passwordBlur"
       />
 
       <p
-        v-if="error"
+        v-if="formError"
         class="form__error"
         role="alert"
       >
-        {{ error }}
+        {{ formError }}
       </p>
 
       <BaseButton
@@ -112,9 +135,7 @@ async function submit() {
       <RouterLink
         :to="{ name: 'register' }"
         class="auth__link"
-      >
-        Create account
-      </RouterLink>
+      > Create account </RouterLink>
     </div>
   </AuthCard>
 </template>
@@ -132,6 +153,7 @@ async function submit() {
   background: var(--danger-soft);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
+  animation: fade-in 0.15s ease-out;
 }
 
 .divider {

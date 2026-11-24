@@ -2,9 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ShieldCheck } from 'lucide-vue-next'
+import { useForm } from 'vee-validate'
 import { useAuthStore } from '@/stores/auth'
 import { useContentStore } from '@/stores/content'
 import { listFactors, verifyTotp } from '@/services/supabase/mfa'
+import { useFormField } from '@/lib/validation'
 
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
@@ -15,8 +17,16 @@ const router = useRouter()
 const auth = useAuthStore()
 const content = useContentStore()
 
-const code = ref('')
-const error = ref('')
+const { handleSubmit } = useForm()
+
+const {
+  value: code,
+  errorMessage: codeError,
+  onBlur: codeBlur,
+  setErrors: setCodeError,
+} = useFormField('code', 'required|digits:6', 'Verification code')
+
+const formError = ref('')
 const loading = ref(false)
 const factorId = ref<string | null>(null)
 
@@ -27,29 +37,26 @@ onMounted(async () => {
   const { active } = await listFactors()
   factorId.value = active.find((f) => f.factor_type === 'totp')?.id ?? null
   if (!factorId.value) {
-    error.value = 'Two-factor setup not found for this account.'
+    formError.value = 'Two-factor setup not found for this account.'
   }
 })
 
-async function submit() {
-  error.value = ''
-  const trimmed = code.value.replace(/\s/g, '')
-  if (!/^\d{6}$/.test(trimmed)) {
-    error.value = 'Enter the 6-digit code from your authenticator app.'
-    return
-  }
+const submit = handleSubmit(async () => {
+  formError.value = ''
   if (!factorId.value) return
 
   loading.value = true
   // challengeAndVerify (inside verifyTotp) creates a fresh challenge and
   // verifies the code against it in one step.
-  const verifyError = await verifyTotp(factorId.value, trimmed)
+  const verifyError = await verifyTotp(factorId.value, code.value.replace(/\s/g, ''))
   loading.value = false
 
   if (verifyError) {
-    error.value = verifyError.includes('expired') || verifyError.includes('Invalid')
-      ? 'That code was not accepted. It may have expired — try the next code.'
-      : verifyError
+    if (verifyError.includes('expired') || verifyError.includes('Invalid')) {
+      setCodeError('That code was not accepted. It may have expired — try the next code.')
+    } else {
+      formError.value = verifyError
+    }
     return
   }
 
@@ -57,7 +64,7 @@ async function submit() {
   await content.loadAll()
   const redirect = (route.query.redirect as string) || '/'
   router.replace(redirect)
-}
+})
 </script>
 
 <template>
@@ -67,6 +74,7 @@ async function submit() {
   >
     <form
       class="form"
+      novalidate
       @submit.prevent="submit"
     >
       <div
@@ -80,19 +88,21 @@ async function submit() {
         v-model="code"
         label="Verification code"
         type="text"
-        placeholder="123456"
         autocomplete="one-time-code"
         inputmode="numeric"
+        floating
         hint="Open Google Authenticator, Authy, 1Password, or Microsoft Authenticator."
+        :error="codeError"
         required
+        @blur="codeBlur"
       />
 
       <p
-        v-if="error"
+        v-if="formError"
         class="form__error"
         role="alert"
       >
-        {{ error }}
+        {{ formError }}
       </p>
 
       <BaseButton
@@ -146,6 +156,7 @@ async function submit() {
   background: var(--danger-soft);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
+  animation: fade-in 0.15s ease-out;
 }
 
 .mfa-email {

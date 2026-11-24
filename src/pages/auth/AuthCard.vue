@@ -47,23 +47,63 @@ defineProps<{
   align-items: center;
   justify-content: center;
   padding: var(--space-6) var(--space-4);
-  background: var(--bg-base);
   gap: var(--space-8);
+  background:
+    radial-gradient(600px 320px at 50% 18%, var(--accent-soft), transparent 70%), var(--bg-base);
 }
 
 .auth__card {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  animation: rise-in 0.45s ease-out both;
+}
+
+/* Staggered entrance: brand → title → subtitle → slot children → footer */
+.auth__card > :deep(*) {
+  animation: rise-in 0.4s ease-out both;
+}
+
+.auth__card > :deep(*:nth-child(1)) {
+  animation-delay: 0.06s;
+}
+
+.auth__card > :deep(*:nth-child(2)) {
+  animation-delay: 0.12s;
+}
+
+.auth__card > :deep(*:nth-child(3)) {
+  animation-delay: 0.18s;
+}
+
+.auth__card > :deep(*:nth-child(4)) {
+  animation-delay: 0.26s;
+}
+
+.auth__card > :deep(*:nth-child(5)) {
+  animation-delay: 0.34s;
+}
+
+.auth__card > :deep(*:nth-child(6)) {
+  animation-delay: 0.42s;
+}
+
+.auth__card > :deep(*:nth-child(n + 7)) {
+  animation-delay: 0.5s;
 }
 
 .auth__brand {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
 }
 
 .auth__brand-name {
@@ -88,5 +128,6 @@ defineProps<{
 .auth__footer {
   font-size: var(--text-xs);
   color: var(--text-muted);
+  animation: rise-in 0.4s ease-out 0.55s both;
 }
 </style>

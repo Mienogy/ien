@@ -8,21 +8,30 @@ import { supabase, isSupabaseConfigured } from './client'
 
 export interface AuthResult {
   error: string | null
+  /** Supabase error code (e.g. `user_already_exists`) when available. */
+  code?: string
 }
 
-function message(error: { message?: string } | null): string | null {
-  if (!error) return null
-  return error.message || 'Something went wrong. Please try again.'
+function toResult(error: { message?: string; code?: string } | null): AuthResult {
+  if (!error) return { error: null }
+  return { error: error.message || 'Something went wrong. Please try again.', code: error.code }
 }
 
 export async function register(email: string, password: string): Promise<AuthResult> {
   if (!isSupabaseConfigured) return { error: 'Supabase is not configured yet.' }
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: email.trim(),
     password,
     options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
   })
-  return { error: message(error) }
+  if (error) return toResult(error)
+  // With email confirmation on, Supabase "succeeds" silently for addresses
+  // that already exist and returns an empty identities list instead of an
+  // error (anti-enumeration). Surface it as a real duplicate-account error.
+  if (data.user && data.user.identities && data.user.identities.length === 0) {
+    return { error: 'An account with this email already exists.', code: 'user_already_exists' }
+  }
+  return { error: null }
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
@@ -31,12 +40,12 @@ export async function login(email: string, password: string): Promise<AuthResult
     email: email.trim(),
     password,
   })
-  return { error: message(error) }
+  return toResult(error)
 }
 
 export async function logout(): Promise<AuthResult> {
   const { error } = await supabase.auth.signOut()
-  return { error: message(error) }
+  return toResult(error)
 }
 
 /**
@@ -53,22 +62,25 @@ export async function requestPasswordReset(email: string): Promise<AuthResult> {
   if (error && error.message.includes('For security purposes')) {
     return { error: null }
   }
-  return { error: message(error) }
+  return toResult(error)
 }
 
 export async function resetPassword(newPassword: string): Promise<AuthResult> {
   const { error } = await supabase.auth.updateUser({ password: newPassword })
-  return { error: message(error) }
+  return toResult(error)
 }
 
 export async function changePassword(newPassword: string): Promise<AuthResult> {
   const { error } = await supabase.auth.updateUser({ password: newPassword })
-  return { error: message(error) }
+  return toResult(error)
 }
 
 export async function changeEmail(newEmail: string): Promise<AuthResult> {
-  const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
-  return { error: message(error) }
+  const { error } = await supabase.auth.updateUser(
+    { email: newEmail.trim() },
+    { emailRedirectTo: `${window.location.origin}/auth/callback` },
+  )
+  return toResult(error)
 }
 
 export function signInWithGoogle(): Promise<AuthResult> {
@@ -78,5 +90,5 @@ export function signInWithGoogle(): Promise<AuthResult> {
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
-    .then(({ error }) => ({ error: message(error) }))
+    .then(({ error }) => toResult(error))
 }

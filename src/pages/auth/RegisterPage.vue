@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useForm } from 'vee-validate'
+import { Lock, Mail } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { mapAuthError, useFormField } from '@/lib/validation'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import GoogleButton from '@/components/auth/GoogleButton.vue'
@@ -8,36 +11,56 @@ import AuthCard from './AuthCard.vue'
 
 const auth = useAuthStore()
 
-const email = ref('')
-const password = ref('')
-const confirm = ref('')
-const error = ref('')
+const { handleSubmit } = useForm()
+
+const {
+  value: email,
+  errorMessage: emailError,
+  onBlur: emailBlur,
+  setErrors: setEmailError,
+} = useFormField('email', 'required|email', 'Email')
+const {
+  value: password,
+  errorMessage: passwordError,
+  onBlur: passwordBlur,
+  setErrors: setPasswordError,
+} = useFormField('password', 'required|min:8', 'Password')
+const {
+  value: confirm,
+  errorMessage: confirmError,
+  onBlur: confirmBlur,
+} = useFormField('confirm', 'required|confirmed:@password', 'Password confirmation')
+
+const formError = ref('')
 const loading = ref(false)
 const registered = ref(false)
+const duplicate = ref(false)
 
-async function submit() {
-  error.value = ''
-  if (!email.value.trim()) {
-    error.value = 'Please enter your email.'
-    return
-  }
-  if (password.value.length < 8) {
-    error.value = 'Password must be at least 8 characters.'
-    return
-  }
-  if (password.value !== confirm.value) {
-    error.value = 'Passwords do not match.'
-    return
-  }
+// The "sign in instead" note belongs to the current email only.
+watch(email, () => {
+  duplicate.value = false
+})
+
+const submit = handleSubmit(async () => {
+  formError.value = ''
   loading.value = true
   const result = await auth.register(email.value, password.value)
   loading.value = false
+
   if (result.error) {
-    error.value = result.error
+    const mapped = mapAuthError(result)
+    if (mapped?.field === 'email') {
+      setEmailError(mapped.message)
+      duplicate.value = Boolean(mapped.duplicate)
+    } else if (mapped?.field === 'password') {
+      setPasswordError(mapped.message)
+    } else {
+      formError.value = mapped?.message ?? result.error
+    }
     return
   }
   registered.value = true
-}
+})
 </script>
 
 <template>
@@ -48,40 +71,62 @@ async function submit() {
   >
     <form
       class="form"
+      novalidate
       @submit.prevent="submit"
     >
       <BaseInput
         v-model="email"
         label="Email"
         type="email"
-        placeholder="you@example.com"
         autocomplete="email"
+        floating
+        :icon="Mail"
+        :error="emailError"
         required
+        @blur="emailBlur"
       />
+      <p
+        v-if="duplicate"
+        class="field-note"
+      >
+        This address already has an account —
+        <RouterLink
+          :to="{ name: 'login' }"
+          class="auth__link"
+        >sign in instead</RouterLink>.
+      </p>
       <BaseInput
         v-model="password"
         label="Password"
         type="password"
-        placeholder="At least 8 characters"
         autocomplete="new-password"
+        floating
+        :icon="Lock"
+        toggleable
         hint="Use at least 8 characters."
+        :error="passwordError"
         required
+        @blur="passwordBlur"
       />
       <BaseInput
         v-model="confirm"
         label="Confirm password"
         type="password"
-        placeholder="Repeat your password"
         autocomplete="new-password"
+        floating
+        :icon="Lock"
+        toggleable
+        :error="confirmError"
         required
+        @blur="confirmBlur"
       />
 
       <p
-        v-if="error"
+        v-if="formError"
         class="form__error"
         role="alert"
       >
-        {{ error }}
+        {{ formError }}
       </p>
 
       <BaseButton
@@ -130,12 +175,20 @@ async function submit() {
   gap: var(--space-4);
 }
 
+.field-note {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin: calc(-1 * var(--space-2)) 0 0;
+  animation: fade-in 0.15s ease-out;
+}
+
 .form__error {
   font-size: var(--text-sm);
   color: var(--danger);
   background: var(--danger-soft);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
+  animation: fade-in 0.15s ease-out;
 }
 
 .divider {

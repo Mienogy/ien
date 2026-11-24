@@ -1,33 +1,43 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useForm } from 'vee-validate'
+import { Mail } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { mapAuthError, useFormField } from '@/lib/validation'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import AuthCard from './AuthCard.vue'
 
 const auth = useAuthStore()
 
-const email = ref('')
-const error = ref('')
+const { handleSubmit } = useForm()
+
+const {
+  value: email,
+  errorMessage: emailError,
+  onBlur: emailBlur,
+  setErrors: setEmailError,
+} = useFormField('email', 'required|email', 'Email')
+
+const formError = ref('')
 const loading = ref(false)
 const sent = ref(false)
 
-async function submit() {
-  error.value = ''
-  if (!email.value.trim()) {
-    error.value = 'Please enter your email.'
-    return
-  }
+const submit = handleSubmit(async () => {
+  formError.value = ''
   loading.value = true
   const result = await auth.requestPasswordReset(email.value)
   loading.value = false
+
   if (result.error) {
-    error.value = result.error
+    const mapped = mapAuthError(result)
+    if (mapped?.field === 'email') setEmailError(mapped.message)
+    else formError.value = mapped?.message ?? result.error
     return
   }
   // Same response whether or not the account exists (no enumeration).
   sent.value = true
-}
+})
 </script>
 
 <template>
@@ -38,22 +48,26 @@ async function submit() {
   >
     <form
       class="form"
+      novalidate
       @submit.prevent="submit"
     >
       <BaseInput
         v-model="email"
         label="Email"
         type="email"
-        placeholder="you@example.com"
         autocomplete="email"
+        floating
+        :icon="Mail"
+        :error="emailError"
         required
+        @blur="emailBlur"
       />
       <p
-        v-if="error"
+        v-if="formError"
         class="form__error"
         role="alert"
       >
-        {{ error }}
+        {{ formError }}
       </p>
       <BaseButton
         type="submit"
@@ -102,6 +116,7 @@ async function submit() {
   background: var(--danger-soft);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
+  animation: fade-in 0.15s ease-out;
 }
 
 .auth__link-line {
