@@ -48,7 +48,10 @@ export interface Page {
   type: PageType
   is_favorite: boolean
   is_archived: boolean
+  is_template: boolean
   position: number
+  /** Plain-text projection of content, maintained for search. */
+  search_text: string | null
   created_at: string
   updated_at: string
   last_viewed_at: string | null

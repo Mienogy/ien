@@ -29,6 +29,7 @@ export interface WorkspaceExport {
     cover_url: string | null
     type: 'page' | 'checklist'
     is_favorite: boolean
+    is_template?: boolean
     position: number
     search_text: string | null
   }[]
@@ -56,7 +57,7 @@ export async function exportWorkspace(userId: string): Promise<WorkspaceExport> 
     supabase
       .from('pages')
       .select(
-        'id, space_id, category_id, parent_id, title, content, icon, cover_url, type, is_favorite, position, search_text',
+        'id, space_id, category_id, parent_id, title, content, icon, cover_url, type, is_favorite, is_template, position, search_text',
       )
       .eq('user_id', userId),
     supabase
@@ -165,6 +166,7 @@ export async function importWorkspace(
       icon: page.icon,
       cover_url: page.cover_url,
       is_favorite: page.is_favorite,
+      is_template: page.is_template ?? false,
       position: page.position,
       search_text: page.search_text ?? undefined,
     })

@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   FolderOpen,
+  LayoutTemplate,
   MoreHorizontal,
   Plus,
   Star,
@@ -27,6 +28,7 @@ import SubPageList from '@/components/sidebar/SubPageList.vue'
 import type { Page } from '@/types/models'
 import * as pagesService from '@/services/supabase/pages'
 import * as checklistsService from '@/services/supabase/checklists'
+import * as templatesService from '@/services/supabase/templates'
 import { tiptapToMarkdown } from '@/lib/tiptapMarkdown'
 import { downloadText, slugify } from '@/lib/download'
 
@@ -137,6 +139,16 @@ async function exportMarkdown() {
     toasts.success('Exported as Markdown.')
   } catch (e) {
     toasts.error(e instanceof Error ? e.message : 'Export failed.')
+  }
+}
+
+async function saveAsTemplate() {
+  if (!page.value) return
+  try {
+    await templatesService.saveAsTemplate(page.value, auth.userId ?? '')
+    toasts.success('Saved as template — find it under “From template” on Home.')
+  } catch (e) {
+    toasts.error(e instanceof Error ? e.message : 'Failed to save template.')
   }
 }
 
@@ -352,6 +364,13 @@ const saveLabel = computed(() => {
               class="menu"
               role="menu"
             >
+              <button
+                class="menu__item"
+                role="menuitem"
+                @click="menuOpen = false; saveAsTemplate()"
+              >
+                <LayoutTemplate :size="14" /> Save as template
+              </button>
               <button
                 class="menu__item"
                 role="menuitem"

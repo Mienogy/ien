@@ -28,6 +28,7 @@ export async function search(userId: string, term: string, limit = 12): Promise<
       .select('id, title, space_id, search_text, is_archived')
       .eq('user_id', userId)
       .eq('is_archived', false)
+      .eq('is_template', false)
       .or(`title.ilike.${pattern},search_text.ilike.${pattern}`)
       .limit(limit),
     supabase

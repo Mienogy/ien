@@ -20,6 +20,7 @@ export async function listRootPages(
     .eq('user_id', userId)
     .is('parent_id', null)
     .eq('is_archived', opts.archived ?? false)
+    .eq('is_template', false)
     .order('position', { ascending: true })
     .order('created_at', { ascending: true })
 
@@ -40,6 +41,7 @@ export async function listChildPages(userId: string, parentId: string): Promise<
     .eq('user_id', userId)
     .eq('parent_id', parentId)
     .eq('is_archived', false)
+    .eq('is_template', false)
     .order('position', { ascending: true })
     .order('created_at', { ascending: true })
   if (error) throw new Error(error.message)
@@ -65,6 +67,7 @@ export async function listFavorites(userId: string): Promise<PageSummary[]> {
     .eq('user_id', userId)
     .eq('is_favorite', true)
     .eq('is_archived', false)
+    .eq('is_template', false)
     .order('updated_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []) as PageSummary[]
@@ -77,6 +80,7 @@ export async function listRecent(userId: string, limit = 30): Promise<PageSummar
     .select(SUMMARY_COLUMNS)
     .eq('user_id', userId)
     .eq('is_archived', false)
+    .eq('is_template', false)
     .order('updated_at', { ascending: false })
     .limit(limit)
   if (error) throw new Error(error.message)
@@ -90,6 +94,7 @@ export async function listArchived(userId: string): Promise<PageSummary[]> {
     .select(SUMMARY_COLUMNS)
     .eq('user_id', userId)
     .eq('is_archived', true)
+    .eq('is_template', false)
     .order('updated_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []) as PageSummary[]
@@ -133,6 +138,7 @@ export interface PageUpdate {
   parent_id?: string | null
   is_favorite?: boolean
   is_archived?: boolean
+  is_template?: boolean
   position?: number
   /** Plain-text projection of content, maintained for search. */
   search_text?: string

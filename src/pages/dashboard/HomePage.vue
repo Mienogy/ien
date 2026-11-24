@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { FileText, FolderPlus, ListChecks, Plus, Star } from 'lucide-vue-next'
+import { FileText, FolderPlus, LayoutTemplate, ListChecks, Plus, Star } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useContentStore } from '@/stores/content'
 import { useToasts } from '@/composables/useToasts'
@@ -10,6 +10,7 @@ import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import PageLink from '@/components/ui/PageLink.vue'
 import CreateChecklistDialog from '@/components/notes/CreateChecklistDialog.vue'
+import TemplateDialog from '@/components/notes/TemplateDialog.vue'
 import CreateSpaceDialog from '@/components/spaces/CreateSpaceDialog.vue'
 import type { DashboardStats, PageSummary } from '@/types/models'
 import { getDashboardStats } from '@/services/supabase/stats'
@@ -24,6 +25,7 @@ const recents = ref<PageSummary[]>([])
 const favorites = ref<PageSummary[]>([])
 const stats = ref<DashboardStats>({ spaces: 0, pages: 0, favorites: 0, checklists: 0 })
 const checklistDialogOpen = ref(false)
+const templateDialogOpen = ref(false)
 
 const firstName = computed(() => {
   const p = content.profile
@@ -106,6 +108,12 @@ onMounted(async () => {
         @click="checklistDialogOpen = true"
       >
         <ListChecks :size="15" /> New Checklist
+      </BaseButton>
+      <BaseButton
+        variant="secondary"
+        @click="templateDialogOpen = true"
+      >
+        <LayoutTemplate :size="15" /> From template
       </BaseButton>
     </section>
 
@@ -243,6 +251,10 @@ onMounted(async () => {
 
     <CreateSpaceDialog />
     <CreateChecklistDialog v-model:open="checklistDialogOpen" />
+    <TemplateDialog
+      :open="templateDialogOpen"
+      @close="templateDialogOpen = false"
+    />
   </div>
 </template>
 
