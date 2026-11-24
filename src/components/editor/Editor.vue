@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -16,9 +16,12 @@ import TableHeader from '@tiptap/extension-table-header'
 import {
   Bold,
   Code,
+  Columns3,
   Heading1,
   Heading2,
   Heading3,
+  Image as ImageIcon,
+  Info,
   Italic,
   List,
   ListChecks,
@@ -26,10 +29,18 @@ import {
   Minus,
   Quote,
   Redo,
+  Rows3,
   Strikethrough,
+  Table,
+  Trash2,
   Underline as UnderlineIcon,
   Undo,
+  X,
 } from 'lucide-vue-next'
+import { Callout } from './callout'
+import { useAuthStore } from '@/stores/auth'
+import { useToasts } from '@/composables/useToasts'
+import { uploadPageImage } from '@/services/supabase/storage'
 
 const props = withDefaults(
   defineProps<{
@@ -38,7 +49,7 @@ const props = withDefaults(
   }>(),
   {
     modelValue: null,
-    placeholder: 'Start writing, or press "/" for commands…',
+    placeholder: 'Start writing…',
   },
 )
 
@@ -46,6 +57,9 @@ const emit = defineEmits<{
   'update:modelValue': [value: Record<string, unknown>]
   save: [value: Record<string, unknown>]
 }>()
+
+const auth = useAuthStore()
+const toasts = useToasts()
 
 // shallowRef: the Editor is a complex class instance that tiptap mutates
 // internally — deep reactivity would be wasteful and breaks its type.
@@ -71,6 +85,7 @@ function createEditor() {
       TableRow,
       TableCell,
       TableHeader,
+      Callout,
     ],
     content: (props.modelValue as object) ?? '',
     editorProps: {
@@ -108,16 +123,73 @@ onBeforeUnmount(() => {
   editor.value?.destroy()
 })
 
-function setLink() {
-  if (!editor.value) return
-  const previous = editor.value.getAttributes('link').href as string | undefined
-  const url = window.prompt('Link URL', previous ?? 'https://')
-  if (url === null) return
-  if (url === '') {
-    editor.value.chain().focus().unsetLink().run()
+/* ---------- Link (inline bar — never a native prompt) ---------- */
+
+const linkOpen = ref(false)
+const linkUrl = ref('')
+const linkError = ref('')
+const linkInput = ref<HTMLInputElement | null>(null)
+
+function openLink() {
+  linkUrl.value = (editor.value?.getAttributes('link').href as string | undefined) ?? ''
+  linkError.value = ''
+  linkOpen.value = true
+  void nextTick(() => linkInput.value?.focus())
+}
+
+function applyLink() {
+  let url = linkUrl.value.trim()
+  if (!url) {
+    linkError.value = 'Enter a URL for the link.'
     return
   }
-  editor.value.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+  // Allow bare domains (example.com) — prepend https:// automatically.
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) {
+    if (!url.includes('.')) {
+      linkError.value = 'Enter a full URL, like https://example.com.'
+      return
+    }
+    url = `https://${url}`
+  }
+  editor.value?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+  linkOpen.value = false
+}
+
+function removeLink() {
+  editor.value?.chain().focus().unsetLink().run()
+  linkOpen.value = false
+}
+
+/* ---------- Image upload ---------- */
+
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploading = ref(false)
+
+function openImagePicker() {
+  fileInput.value?.click()
+}
+
+async function onImageSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // allow re-selecting the same file
+  if (!file || !editor.value) return
+
+  uploading.value = true
+  const { url, error } = await uploadPageImage(auth.userId ?? '', file)
+  uploading.value = false
+
+  if (error || !url) {
+    toasts.error(error ?? 'Image upload failed.')
+    return
+  }
+  editor.value.chain().focus().setImage({ src: url }).run()
+}
+
+/* ---------- Table ---------- */
+
+function insertTable() {
+  editor.value?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
 }
 </script>
 
@@ -200,7 +272,7 @@ function setLink() {
         :class="{ 'tool--active': editor.isActive('link') }"
         title="Link"
         aria-label="Insert link"
-        @click="setLink"
+        @click="openLink"
       >
         <span class="tool__text">Link</span>
       </button>
@@ -245,6 +317,15 @@ function setLink() {
       </button>
       <button
         class="tool"
+        :class="{ 'tool--active': editor.isActive('callout') }"
+        title="Callout"
+        aria-label="Callout"
+        @click="editor.chain().focus().toggleCallout().run()"
+      >
+        <Info :size="15" />
+      </button>
+      <button
+        class="tool"
         title="Divider"
         aria-label="Divider"
         @click="editor.chain().focus().setHorizontalRule().run()"
@@ -260,6 +341,53 @@ function setLink() {
       >
         <Code :size="15" />
       </button>
+
+      <span class="toolbar__sep" />
+
+      <button
+        class="tool"
+        title="Insert image"
+        aria-label="Insert image"
+        :disabled="uploading"
+        @click="openImagePicker"
+      >
+        <ImageIcon :size="15" />
+      </button>
+      <button
+        v-if="!editor.isActive('table')"
+        class="tool"
+        title="Insert table"
+        aria-label="Insert table"
+        @click="insertTable"
+      >
+        <Table :size="15" />
+      </button>
+      <template v-else>
+        <button
+          class="tool"
+          title="Add row below"
+          aria-label="Add row below"
+          @click="editor.chain().focus().addRowAfter().run()"
+        >
+          <Rows3 :size="15" />
+        </button>
+        <button
+          class="tool"
+          title="Add column after"
+          aria-label="Add column after"
+          @click="editor.chain().focus().addColumnAfter().run()"
+        >
+          <Columns3 :size="15" />
+        </button>
+        <button
+          class="tool"
+          title="Delete table"
+          aria-label="Delete table"
+          @click="editor.chain().focus().deleteTable().run()"
+        >
+          <Trash2 :size="15" />
+        </button>
+      </template>
 
       <span class="toolbar__sep" />
 
@@ -282,6 +410,63 @@ function setLink() {
         <Redo :size="15" />
       </button>
     </div>
+
+    <!-- Inline link editor (replaces the old native prompt) -->
+    <div
+      v-if="linkOpen"
+      class="link-bar"
+      role="group"
+      aria-label="Edit link"
+    >
+      <input
+        ref="linkInput"
+        v-model="linkUrl"
+        class="link-bar__input"
+        :class="{ 'link-bar__input--error': linkError }"
+        type="text"
+        placeholder="https://example.com"
+        aria-label="Link URL"
+        @keyup.enter="applyLink"
+        @keyup.escape="linkOpen = false"
+      >
+      <button
+        class="link-bar__btn link-bar__btn--primary"
+        @click="applyLink"
+      >
+        Apply
+      </button>
+      <button
+        v-if="editor && editor.isActive('link')"
+        class="link-bar__btn"
+        @click="removeLink"
+      >
+        Remove
+      </button>
+      <button
+        class="link-bar__close"
+        aria-label="Close link editor"
+        @click="linkOpen = false"
+      >
+        <X :size="14" />
+      </button>
+      <p
+        v-if="linkError"
+        class="link-bar__error"
+        role="alert"
+      >
+        {{ linkError }}
+      </p>
+    </div>
+
+    <input
+      ref="fileInput"
+      class="editor__file-input"
+      type="file"
+      accept="image/jpeg,image/png,image/webp,image/gif"
+      aria-hidden="true"
+      tabindex="-1"
+      @change="onImageSelected"
+    >
 
     <EditorContent :editor="editorForContent" />
   </div>
@@ -344,5 +529,87 @@ function setLink() {
   height: 16px;
   background: var(--border);
   margin: 0 var(--space-1);
+}
+
+/* Inline link editor */
+.link-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  margin-bottom: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.link-bar__input {
+  flex: 1;
+  min-width: 160px;
+  height: 30px;
+  padding: 0 var(--space-2);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.link-bar__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.link-bar__input--error {
+  border-color: var(--danger);
+}
+
+.link-bar__btn {
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+}
+
+.link-bar__btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.link-bar__btn--primary {
+  background: var(--accent);
+  color: #202124;
+}
+
+.link-bar__btn--primary:hover {
+  background: var(--accent-strong);
+  color: #202124;
+}
+
+.link-bar__close {
+  display: flex;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.link-bar__close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.link-bar__error {
+  flex-basis: 100%;
+  font-size: var(--text-xs);
+  color: var(--danger);
+}
+
+/* Hidden file picker for image uploads */
+.editor__file-input {
+  display: none;
 }
 </style>

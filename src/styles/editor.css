@@ -172,3 +172,16 @@
   pointer-events: none;
   height: 0;
 }
+
+/* Callout (Workflow §11) */
+.prose-editor .callout {
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin: 0.8em 0;
+}
+
+.prose-editor .callout p {
+  margin: 0;
+}

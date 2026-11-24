@@ -55,3 +55,28 @@ export async function removeAvatar(userId: string): Promise<string | null> {
   const { error } = await supabase.storage.from(BUCKET).remove(files)
   return error?.message ?? null
 }
+
+/**
+ * Upload an image for embedding in a page (Workflow §11).
+ * Layout: images/{user-id}/{uuid}.{ext} — unique name, never overwrites.
+ */
+export async function uploadPageImage(userId: string, file: File): Promise<UploadResult> {
+  if (!isSupabaseConfigured) return { url: null, error: 'Supabase is not configured yet.' }
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return { url: null, error: 'Please choose a JPEG, PNG, WebP, or GIF image.' }
+  }
+  if (file.size > MAX_BYTES) {
+    return { url: null, error: 'Image must be smaller than 5 MB.' }
+  }
+
+  const name = `${crypto.randomUUID()}.${extensionFor(file.type)}`
+  const path = `${userId}/${name}`
+  const { error } = await supabase.storage.from('images').upload(path, file, {
+    cacheControl: '3600',
+  })
+  if (error) return { url: null, error: error.message }
+
+  const { data } = supabase.storage.from('images').getPublicUrl(path)
+  return { url: data.publicUrl, error: null }
+}
