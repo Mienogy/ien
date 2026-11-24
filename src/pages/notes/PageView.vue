@@ -8,6 +8,7 @@ import {
   Download,
   FileText,
   FolderOpen,
+  History,
   LayoutTemplate,
   MoreHorizontal,
   Plus,
@@ -20,6 +21,7 @@ import { useToasts } from '@/composables/useToasts'
 import Editor from '@/components/editor/Editor.vue'
 import ChecklistEditor from '@/components/notes/ChecklistEditor.vue'
 import CategoryMenu from '@/components/notes/CategoryMenu.vue'
+import VersionHistoryDialog from '@/components/notes/VersionHistoryDialog.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -29,6 +31,7 @@ import type { Page } from '@/types/models'
 import * as pagesService from '@/services/supabase/pages'
 import * as checklistsService from '@/services/supabase/checklists'
 import * as templatesService from '@/services/supabase/templates'
+import * as revisionsService from '@/services/supabase/revisions'
 import { tiptapToMarkdown } from '@/lib/tiptapMarkdown'
 import { downloadText, slugify } from '@/lib/download'
 
@@ -43,6 +46,7 @@ const loading = ref(true)
 const notFound = ref(false)
 const saveState = ref<'idle' | 'saving' | 'saved'>('idle')
 const menuOpen = ref(false)
+const historyOpen = ref(false)
 const deleteOpen = ref(false)
 const deleting = ref(false)
 const titleDraft = ref('')
@@ -105,6 +109,10 @@ async function persist(patch: Parameters<typeof pagesService.updatePage>[2], sho
     return
   }
   Object.assign(page.value, patch)
+  // Version history: snapshot title/content edits (throttled internally).
+  if (patch.title !== undefined || patch.content !== undefined) {
+    void revisionsService.snapshotIfDue(page.value, auth.userId ?? '')
+  }
   if (showState) {
     saveState.value = 'saved'
     window.setTimeout(() => {
@@ -367,6 +375,13 @@ const saveLabel = computed(() => {
               <button
                 class="menu__item"
                 role="menuitem"
+                @click="menuOpen = false; historyOpen = true"
+              >
+                <History :size="14" /> Version history
+              </button>
+              <button
+                class="menu__item"
+                role="menuitem"
                 @click="menuOpen = false; saveAsTemplate()"
               >
                 <LayoutTemplate :size="14" /> Save as template
@@ -487,6 +502,13 @@ const saveLabel = computed(() => {
         :loading="deleting"
         @close="deleteOpen = false"
         @confirm="confirmDelete"
+      />
+
+      <VersionHistoryDialog
+        :open="historyOpen"
+        :page="page"
+        @close="historyOpen = false"
+        @restored="load"
       />
     </article>
   </div>

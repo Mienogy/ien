@@ -90,3 +90,13 @@ export interface DashboardStats {
   favorites: number
   checklists: number
 }
+
+/** Snapshot of a page taken while editing (Workflow §47 — version history). */
+export interface Revision {
+  id: string
+  page_id: string
+  title: string
+  content: Record<string, unknown> | null
+  search_text: string | null
+  created_at: string
+}
