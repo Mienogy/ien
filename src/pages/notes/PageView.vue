@@ -12,6 +12,7 @@ import {
   LayoutTemplate,
   MoreHorizontal,
   Plus,
+  Share2,
   Star,
   Trash2,
 } from 'lucide-vue-next'
@@ -21,6 +22,7 @@ import { useToasts } from '@/composables/useToasts'
 import Editor from '@/components/editor/Editor.vue'
 import ChecklistEditor from '@/components/notes/ChecklistEditor.vue'
 import CategoryMenu from '@/components/notes/CategoryMenu.vue'
+import ShareDialog from '@/components/notes/ShareDialog.vue'
 import VersionHistoryDialog from '@/components/notes/VersionHistoryDialog.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import BaseSkeleton from '@/components/ui/BaseSkeleton.vue'
@@ -47,6 +49,7 @@ const notFound = ref(false)
 const saveState = ref<'idle' | 'saving' | 'saved'>('idle')
 const menuOpen = ref(false)
 const historyOpen = ref(false)
+const shareOpen = ref(false)
 const deleteOpen = ref(false)
 const deleting = ref(false)
 const titleDraft = ref('')
@@ -158,6 +161,10 @@ async function saveAsTemplate() {
   } catch (e) {
     toasts.error(e instanceof Error ? e.message : 'Failed to save template.')
   }
+}
+
+function onShareChanged(slug: string | null) {
+  if (page.value) page.value.public_slug = slug
 }
 
 function onEditorSave(value: Record<string, unknown>) {
@@ -375,6 +382,13 @@ const saveLabel = computed(() => {
               <button
                 class="menu__item"
                 role="menuitem"
+                @click="menuOpen = false; shareOpen = true"
+              >
+                <Share2 :size="14" /> Share…
+              </button>
+              <button
+                class="menu__item"
+                role="menuitem"
                 @click="menuOpen = false; historyOpen = true"
               >
                 <History :size="14" /> Version history
@@ -509,6 +523,13 @@ const saveLabel = computed(() => {
         :page="page"
         @close="historyOpen = false"
         @restored="load"
+      />
+
+      <ShareDialog
+        :open="shareOpen"
+        :page="page"
+        @close="shareOpen = false"
+        @changed="onShareChanged"
       />
     </article>
   </div>

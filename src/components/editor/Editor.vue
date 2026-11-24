@@ -46,10 +46,13 @@ const props = withDefaults(
   defineProps<{
     modelValue?: Record<string, unknown> | null
     placeholder?: string
+    /** Read-only rendering (public page view). */
+    editable?: boolean
   }>(),
   {
     modelValue: null,
     placeholder: 'Start writing…',
+    editable: true,
   },
 )
 
@@ -69,12 +72,16 @@ let saveTimer: number | undefined
 
 function createEditor() {
   editor.value = new Editor({
+    editable: props.editable,
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         link: { openOnClick: false, autolink: true },
       }),
-      Placeholder.configure({ placeholder: () => props.placeholder }),
+      Placeholder.configure({
+        placeholder: () => props.placeholder,
+        showOnlyWhenEditable: true,
+      }),
       Underline,
       Link.configure({ protocols: ['http', 'https', 'mailto'] }),
       Image,
@@ -196,7 +203,7 @@ function insertTable() {
 <template>
   <div class="editor">
     <div
-      v-if="editor"
+      v-if="editor && editable"
       class="toolbar"
       role="toolbar"
       aria-label="Formatting"

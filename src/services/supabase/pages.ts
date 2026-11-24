@@ -139,6 +139,7 @@ export interface PageUpdate {
   is_favorite?: boolean
   is_archived?: boolean
   is_template?: boolean
+  public_slug?: string | null
   position?: number
   /** Plain-text projection of content, maintained for search. */
   search_text?: string

@@ -85,6 +85,13 @@ const router = createRouter({
       ],
     },
 
+    // --- Public, unlisted page sharing (Workflow §47) ---
+    {
+      path: '/p/:slug',
+      name: 'public-page',
+      component: () => import('@/pages/public/PublicPageView.vue'),
+    },
+
     // --- Fallback ---
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
